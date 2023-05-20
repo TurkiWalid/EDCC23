@@ -91,19 +91,14 @@ class ListViewController: UITableViewController {
 	}
     
     private func handleAPIResult(_ result: Result<[Friend], Error>) {
-        let selectionFriend = { [weak self](friend: Friend) in
-            let vc = FriendDetailsViewController()
-            vc.friend = friend
-            self?.show(vc, sender: self)
-        }
         switch result {
         case let .success(friends):
             if User.shared?.isPremium == true {
-                (UIApplication.shared.connectedScenes.first?.delegate as! SceneDelegate).cache.save(items as! [Friend])
+                (UIApplication.shared.connectedScenes.first?.delegate as! SceneDelegate).cache.save(friends)
             }
             self.retryCount = 0
             self.items = friends.map{ friend in
-                return ItemViewModel(friend: friend, selection: { selectionFriend(friend)})
+                return ItemViewModel(friend: friend, selection: { [weak self] in self?.select(friend: friend)})
             }
             self.refreshControl?.endRefreshing()
             self.tableView.reloadData()
@@ -114,7 +109,7 @@ class ListViewController: UITableViewController {
                        switch result {
                        case let .success(friends):
                            self?.items = friends.map{ friend in
-                               return ItemViewModel(friend: friend, selection: { selectionFriend(friend)})
+                               return ItemViewModel(friend: friend, selection: { [weak self] in self?.select(friend: friend)})
                            }
                            self?.tableView.reloadData()
                            
@@ -125,8 +120,7 @@ class ListViewController: UITableViewController {
                    }
                }
             }else {
-                self.showError(error)
-                self.refreshControl?.endRefreshing()
+                self.processFailure(error)
             }
         break
         }
@@ -137,16 +131,12 @@ class ListViewController: UITableViewController {
         case let .success(cards):
             self.retryCount = 0
             self.items = cards.map{ card in
-                return ItemViewModel(card: card, selection: { [weak self] in
-                let vc = CardDetailsViewController()
-                vc.card = card
-                self?.show(vc, sender: self)})
+                return ItemViewModel(card: card, selection: { [weak self] in self?.select(card: card)})
             }
             self.refreshControl?.endRefreshing()
             self.tableView.reloadData()
         case let .failure(error):
-            self.showError(error)
-            self.refreshControl?.endRefreshing()
+            self.processFailure(error)
             break
         }
     }
@@ -162,19 +152,25 @@ class ListViewController: UITableViewController {
                 filteredItems = transfers.filter { !$0.isSender }
             }
             self.items = filteredItems.map{ transfer in
-                return ItemViewModel(transfer: transfer, longDateStyle: self.longDateStyle, selection: { [weak self] in
-                    let vc = TransferDetailsViewController()
-                    vc.transfer = transfer
-                    self?.show(vc, sender: self)
-                })
+                return ItemViewModel(transfer: transfer, longDateStyle: self.longDateStyle, selection: { [weak self] in self?.select(transfer: transfer)})
             }
             self.refreshControl?.endRefreshing()
             self.tableView.reloadData()
         case let .failure(error):
-            self.showError(error)
-            self.refreshControl?.endRefreshing()
+            self.processFailure(error)
             break
         }
+    }
+    
+    private func processFailure(_ error: Error) {
+        if shouldRetry && retryCount < maxRetryCount {
+            retryCount += 1
+            refresh()
+            return
+        }
+        retryCount = 0
+        self.refreshControl?.endRefreshing()
+        showError(error)
     }
 	
     private func showError(_ error: Error){
@@ -256,6 +252,27 @@ struct ItemViewModel {
             detailText = "Received from: \(transfer.sender) on \(dateFormatter.string(from: transfer.date))"
         }
         self.selection = selection
+    }
+}
+
+
+extension UIViewController {
+    func select(friend: Friend ){
+        let vc = FriendDetailsViewController()
+        vc.friend = friend
+        self.show(vc, sender: self)
+    }
+    
+    func select(card: Card){
+        let vc = CardDetailsViewController()
+        vc.card = card
+        self.show(vc, sender: self)
+    }
+    
+    func select(transfer: Transfer){
+        let vc = TransferDetailsViewController()
+        vc.transfer = transfer
+        self.show(vc, sender: self)
     }
 }
 
