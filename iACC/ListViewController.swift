@@ -28,23 +28,6 @@ class ListViewController: UITableViewController {
 		super.viewDidLoad()
 		refreshControl = UIRefreshControl()
 		refreshControl?.addTarget(self, action: #selector(refresh), for: .valueChanged)
-
-        if fromSentTransfersScreen {
-			shouldRetry = true
-			maxRetryCount = 1
-			longDateStyle = true
-
-			navigationItem.title = "Sent"
-			navigationItem.rightBarButtonItem = UIBarButtonItem(title: "Send", style: .done, target: self, action: #selector(sendMoney))
-
-		} else if fromReceivedTransfersScreen {
-			shouldRetry = true
-			maxRetryCount = 1
-			longDateStyle = false
-			
-			navigationItem.title = "Received"
-			navigationItem.rightBarButtonItem = UIBarButtonItem(title: "Request", style: .done, target: self, action: #selector(requestMoney))
-		}
 	}
 	
 	override func viewWillAppear(_ animated: Bool) {
@@ -57,29 +40,7 @@ class ListViewController: UITableViewController {
 	
 	@objc private func refresh() {
 		refreshControl?.beginRefreshing()
-        if fromFriendsScreen {
-            service?.loadItems(completion: handleAPIResult)
-        } else if fromCardsScreen {
-            service?.loadItems(completion: handleAPIResult)
-		} else if fromSentTransfersScreen || fromReceivedTransfersScreen {
-            TransfersAPI.shared.loadTransfers { [weak self] result in
-				DispatchQueue.mainAsyncIfNeeded {
-                    self?.handleAPIResult(result.map { transfers in
-                        var filteredItems: [Transfer] = transfers
-                        if self?.fromSentTransfersScreen == true {
-                            filteredItems = filteredItems.filter(\.isSender)
-                        } else {
-                            filteredItems = filteredItems.filter { !$0.isSender }
-                        }
-                        return filteredItems.map{ transfer in
-                            return ItemViewModel(transfer: transfer, longDateStyle: self?.longDateStyle ?? false, selection: { self?.select(transfer: transfer)})
-                        }
-                    })
-				}
-			}
-		} else {
-			fatalError("unknown context")
-		}
+        service?.loadItems(completion: handleAPIResult)
 	}
     
     private func handleAPIResult(_ result: Result<[ItemViewModel], Error>) {

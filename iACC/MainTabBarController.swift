@@ -74,12 +74,36 @@ class MainTabBarController: UITabBarController {
 	private func makeSentTransfersList() -> ListViewController {
 		let vc = ListViewController()
 		vc.fromSentTransfersScreen = true
+        vc.shouldRetry = true
+        vc.maxRetryCount = 1
+        vc.longDateStyle = true
+
+        vc.navigationItem.title = "Sent"
+        vc.navigationItem.rightBarButtonItem = UIBarButtonItem(title: "Send", style: .done, target: vc, action: #selector(vc.sendMoney))
+        vc.service = TransfersServiceAdapter(
+            api: CardAPI.shared,
+            selection: { [weak vc] transfer in
+                vc?.select(transfer: transfer)
+            },
+            fromSentTransfersScreen: true)
 		return vc
 	}
 	
 	private func makeReceivedTransfersList() -> ListViewController {
 		let vc = ListViewController()
 		vc.fromReceivedTransfersScreen = true
+        vc.shouldRetry = true
+        vc.maxRetryCount = 1
+        vc.longDateStyle = false
+        
+        vc.navigationItem.title = "Received"
+        vc.navigationItem.rightBarButtonItem = UIBarButtonItem(title: "Request", style: .done, target: vc, action: #selector(vc.requestMoney))
+        vc.service = TransfersServiceAdapter(
+            api: CardAPI.shared,
+            selection: { [weak vc] transfer in
+                vc?.select(transfer: transfer)
+            },
+            fromSentTransfersScreen: false)
 		return vc
 	}
 	
@@ -135,8 +159,26 @@ struct CardsItemsServiceAdapter: ItemsService{
             }
         }
     }
+}
+
+struct TransfersServiceAdapter: ItemsService{
+    let api: CardAPI
+    let selection: (Transfer)->Void
+    let fromSentTransfersScreen: Bool
     
-    
+    func loadItems(completion: @escaping (Result<[ItemViewModel], Error>) -> Void) {
+        TransfersAPI.shared.loadTransfers { result in
+            DispatchQueue.mainAsyncIfNeeded {
+                completion(result.map { transfers in
+                    transfers
+                        .filter{ fromSentTransfersScreen ? $0.isSender : !$0.isSender }
+                        .map{ transfer in
+                            return ItemViewModel(transfer: transfer, longDateStyle: fromSentTransfersScreen , selection: { selection(transfer)})
+                        }
+                })
+            }
+        }
+    }
 }
 
 //Null object pattern
