@@ -103,7 +103,7 @@ class ListViewController: UITableViewController {
             self.refreshControl?.endRefreshing()
             self.tableView.reloadData()
         case let .failure(error):
-            if User.shared?.isPremium == true {
+            if User.shared?.isPremium == true && retryCount == maxRetryCount {
                (UIApplication.shared.connectedScenes.first?.delegate as! SceneDelegate).cache.loadFriends { [weak self] result in
                    DispatchQueue.mainAsyncIfNeeded {
                        switch result {
