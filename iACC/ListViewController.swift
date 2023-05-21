@@ -26,17 +26,10 @@ class ListViewController: UITableViewController {
 	
 	override func viewDidLoad() {
 		super.viewDidLoad()
-		
 		refreshControl = UIRefreshControl()
 		refreshControl?.addTarget(self, action: #selector(refresh), for: .valueChanged)
-        if fromCardsScreen {
-			shouldRetry = false
-			
-			title = "Cards"
-			
-			navigationItem.rightBarButtonItem = UIBarButtonItem(barButtonSystemItem: .add, target: self, action: #selector(addCard))
-			
-		} else if fromSentTransfersScreen {
+
+        if fromSentTransfersScreen {
 			shouldRetry = true
 			maxRetryCount = 1
 			longDateStyle = true
@@ -67,17 +60,7 @@ class ListViewController: UITableViewController {
         if fromFriendsScreen {
             service?.loadItems(completion: handleAPIResult)
         } else if fromCardsScreen {
-            CardAPI.shared.loadCards { [weak self] result in
-                DispatchQueue.mainAsyncIfNeeded {
-                    self?.handleAPIResult(result.map{ cards in
-                        return cards.map { card in
-                            ItemViewModel(card: card, selection: { [weak self] in
-                                self?.select(card: card)
-                            })
-                        }
-                    })
-                }
-            }
+            service?.loadItems(completion: handleAPIResult)
 		} else if fromSentTransfersScreen || fromReceivedTransfersScreen {
             TransfersAPI.shared.loadTransfers { [weak self] result in
 				DispatchQueue.mainAsyncIfNeeded {
@@ -107,25 +90,21 @@ class ListViewController: UITableViewController {
             self.refreshControl?.endRefreshing()
             self.tableView.reloadData()
         case let .failure(error):
-            if fromFriendsScreen {
-                if User.shared?.isPremium == true && retryCount == maxRetryCount {
-                   (UIApplication.shared.connectedScenes.first?.delegate as! SceneDelegate).cache.loadFriends { [weak self] result in
-                       DispatchQueue.mainAsyncIfNeeded {
-                           switch result {
-                           case let .success(friends):
-                               self?.items = friends.map{ friend in
-                                   return ItemViewModel(friend: friend, selection: { [weak self] in self?.select(friend: friend)})
-                               }
-                               self?.tableView.reloadData()
-                               
-                           case let .failure(error):
-                               self?.showError(error)
-                           }
-                           self?.refreshControl?.endRefreshing()
-                       }
-                   }
-                }else {
-                    self.processFailure(error)
+            if fromFriendsScreen && User.shared?.isPremium == true && retryCount == maxRetryCount {
+                (UIApplication.shared.connectedScenes.first?.delegate as! SceneDelegate).cache.loadFriends { [weak self] result in
+                    DispatchQueue.mainAsyncIfNeeded {
+                        switch result {
+                        case let .success(friends):
+                            self?.items = friends.map{ friend in
+                                return ItemViewModel(friend: friend, selection: { [weak self] in self?.select(friend: friend)})
+                            }
+                            self?.tableView.reloadData()
+                            
+                        case let .failure(error):
+                            self?.showError(error)
+                        }
+                        self?.refreshControl?.endRefreshing()
+                    }
                 }
             }else {
                 self.processFailure(error)

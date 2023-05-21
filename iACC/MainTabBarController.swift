@@ -68,8 +68,6 @@ class MainTabBarController: UITabBarController {
             selection: { [weak vc] friend in
             vc?.select(friend: friend)}
         )
-        
-        
 		return vc
 	}
 	
@@ -88,6 +86,15 @@ class MainTabBarController: UITabBarController {
 	private func makeCardsList() -> ListViewController {
 		let vc = ListViewController()
 		vc.fromCardsScreen = true
+        vc.shouldRetry = false
+        vc.title = "Cards"
+        vc.navigationItem.rightBarButtonItem = UIBarButtonItem(barButtonSystemItem: .add, target: vc, action: #selector(vc.addCard))
+        vc.service = CardsItemsServiceAdapter(
+            api: CardAPI.shared,
+            selection: { [weak vc] card in
+            vc?.select(card: card)}
+        )
+        
 		return vc
 	}
 	
@@ -111,6 +118,25 @@ struct FriendsItemsServiceAdapter: ItemsService{
             }
         }
     }
+}
+
+struct CardsItemsServiceAdapter: ItemsService{
+    let api: CardAPI
+    let selection: (Card)->Void
+    
+    func loadItems(completion: @escaping (Result<[ItemViewModel], Error>) -> Void) {
+        api.loadCards {  result in
+            DispatchQueue.mainAsyncIfNeeded {
+                completion(result.map{ cards in
+                    return cards.map { card in
+                        ItemViewModel(card: card, selection: {selection(card)})
+                    }
+                })
+            }
+        }
+    }
+    
+    
 }
 
 //Null object pattern
