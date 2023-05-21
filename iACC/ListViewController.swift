@@ -12,17 +12,6 @@ class ListViewController: UITableViewController {
 	var items = [ItemViewModel]()
 	
     var service: ItemsService?
-    
-	var retryCount = 0
-	var maxRetryCount = 0
-	var shouldRetry = false
-	
-	var longDateStyle = false
-	
-	var fromReceivedTransfersScreen = false
-	var fromSentTransfersScreen = false
-	var fromCardsScreen = false
-	var fromFriendsScreen = false
 	
 	override func viewDidLoad() {
 		super.viewDidLoad()
@@ -46,42 +35,13 @@ class ListViewController: UITableViewController {
     private func handleAPIResult(_ result: Result<[ItemViewModel], Error>) {
         switch result {
         case let .success(items):
-            self.retryCount = 0
             self.items = items
             self.refreshControl?.endRefreshing()
             self.tableView.reloadData()
         case let .failure(error):
-            if fromFriendsScreen && User.shared?.isPremium == true && retryCount == maxRetryCount {
-                (UIApplication.shared.connectedScenes.first?.delegate as! SceneDelegate).cache.loadFriends { [weak self] result in
-                    DispatchQueue.mainAsyncIfNeeded {
-                        switch result {
-                        case let .success(friends):
-                            self?.items = friends.map{ friend in
-                                return ItemViewModel(friend: friend, selection: { [weak self] in self?.select(friend: friend)})
-                            }
-                            self?.tableView.reloadData()
-                            
-                        case let .failure(error):
-                            self?.showError(error)
-                        }
-                        self?.refreshControl?.endRefreshing()
-                    }
-                }
-            }else {
-                self.processFailure(error)
-            }
+            self.refreshControl?.endRefreshing()
+            showError(error)
         }
-    }
-    
-    private func processFailure(_ error: Error) {
-        if shouldRetry && retryCount < maxRetryCount {
-            retryCount += 1
-            refresh()
-            return
-        }
-        retryCount = 0
-        self.refreshControl?.endRefreshing()
-        showError(error)
     }
 	
     private func showError(_ error: Error){
